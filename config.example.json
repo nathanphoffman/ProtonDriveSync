@@ -1,0 +1,6 @@
+{
+  "localFolder": "/home/nate/Documents/SomeFolder",
+  "watch": true,
+  "pollIntervalSeconds": 300,
+  "mirrorDeletes": false
+}
