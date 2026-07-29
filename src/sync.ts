@@ -1,15 +1,18 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
 import { Config } from "./config";
+import { listLocal } from "./sync/localScan";
 import {
-  createFolder,
   errorMessage,
   remoteChild,
   remotePathExists,
   remotePathFor,
+  createFolder,
   trash,
   uploadFile,
 } from "./protonDriveCli";
+import { ensureRemoteDir } from "./sync/remoteDirs";
+import { FileMeta, loadState, saveState } from "./sync/state";
 
 const REMOTE_ROOT_PARENT = "/my-files";
 const UPLOAD_BACKOFF_STEP_MS = 10;
@@ -17,84 +20,6 @@ const UPLOAD_BACKOFF_MAX_MS = 15_000;
 
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
-}
-
-interface FileMeta {
-  size: number;
-  mtimeMs: number;
-}
-
-interface State {
-  files: Record<string, FileMeta>;
-  dirs: string[];
-}
-
-function statePath(localFolder: string): string {
-  const hash = Buffer.from(localFolder).toString("base64url");
-  return path.join(__dirname, "..", ".sync-state", `${hash}.json`);
-}
-
-function loadState(localFolder: string): State {
-  const p = statePath(localFolder);
-  if (!fs.existsSync(p)) return { files: {}, dirs: [] };
-  try {
-    const parsed = JSON.parse(fs.readFileSync(p, "utf-8"));
-    return { files: parsed.files ?? {}, dirs: parsed.dirs ?? [] };
-  } catch {
-    return { files: {}, dirs: [] };
-  }
-}
-
-function saveState(localFolder: string, state: State): void {
-  const p = statePath(localFolder);
-  fs.mkdirSync(path.dirname(p), { recursive: true });
-  fs.writeFileSync(p, JSON.stringify(state, null, 2));
-}
-
-function listLocal(root: string): { files: string[]; dirs: string[] } {
-  const files: string[] = [];
-  const dirs: string[] = [];
-
-  function walk(dir: string) {
-    for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
-      const full = path.join(dir, entry.name);
-      const rel = path.relative(root, full).split(path.sep).join("/");
-      if (entry.isDirectory()) {
-        dirs.push(rel);
-        walk(full);
-      } else if (entry.isFile()) {
-        files.push(rel);
-      }
-    }
-  }
-
-  walk(root);
-  return { files, dirs };
-}
-
-async function ensureRemoteDir(
-  localFolder: string,
-  remoteRoot: string,
-  relDir: string,
-  ensuredDirs: Set<string>,
-  knownFiles: Record<string, FileMeta>
-): Promise<void> {
-  if (relDir === "" || ensuredDirs.has(relDir)) return;
-
-  const parentRel = path.posix.dirname(relDir);
-  if (parentRel !== ".") {
-    await ensureRemoteDir(localFolder, remoteRoot, parentRel, ensuredDirs, knownFiles);
-  }
-  const parentRemote = parentRel === "." ? remoteRoot : remotePathFor(remoteRoot, parentRel);
-
-  const name = path.posix.basename(relDir);
-  const remotePath = remotePathFor(remoteRoot, relDir);
-  if (!(await remotePathExists(remotePath))) {
-    console.log(`Creating directory: ${relDir}`);
-    await createFolder(parentRemote, name);
-  }
-  ensuredDirs.add(relDir);
-  saveState(localFolder, { files: knownFiles, dirs: Array.from(ensuredDirs) });
 }
 
 export async function runSync(config: Config): Promise<void> {
