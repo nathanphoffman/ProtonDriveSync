@@ -1,5 +1,6 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
+import { findPackageRoot } from "../packageRoot";
 
 export interface FileMeta {
   size: number;
@@ -11,9 +12,11 @@ export interface State {
   dirs: string[];
 }
 
+const PACKAGE_ROOT = findPackageRoot(__dirname);
+
 export function statePath(localFolder: string): string {
   const hash = Buffer.from(localFolder).toString("base64url");
-  return path.join(__dirname, "..", ".sync-state", `${hash}.json`);
+  return path.join(PACKAGE_ROOT, ".sync-state", `${hash}.json`);
 }
 
 export function loadState(localFolder: string): State {

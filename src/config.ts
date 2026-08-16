@@ -1,6 +1,7 @@
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
+import { findPackageRoot } from "./packageRoot";
 
 export interface Config {
   localFolder: string;
@@ -9,7 +10,7 @@ export interface Config {
   mirrorDeletes: boolean;
 }
 
-const CONFIG_PATH = path.join(__dirname, "..", "config.json");
+const CONFIG_PATH = path.join(findPackageRoot(__dirname), "config.json");
 
 function expandHome(p: string): string {
   if (p.startsWith("~")) {
