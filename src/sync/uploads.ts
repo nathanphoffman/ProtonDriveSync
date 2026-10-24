@@ -46,12 +46,13 @@ export function planUploads(
     }
   }
 
-  console.log(
-    `Scanned ${files.length} local files: ${toUpload.length} to upload, ` +
-      `${files.length - toUpload.length} unchanged.`
-  );
+  logScanSummary(files.length, toUpload.length);
 
   return toUpload;
+}
+
+function logScanSummary(total: number, toUploadCount: number): void {
+  console.log(`Scanned ${total} local files: ${toUploadCount} to upload, ${total - toUploadCount} unchanged.`);
 }
 
 async function uploadOne(context: SyncContext, pending: PendingUpload, progress: string): Promise<boolean> {
@@ -68,6 +69,25 @@ async function uploadOne(context: SyncContext, pending: PendingUpload, progress:
   }
 }
 
+// Growing delay so a huge first sync doesn't hammer the API; safe to
+// Ctrl+C and rerun since state is saved after each successful upload.
+function backoffDelayMs(uploadedSoFar: number): number {
+  return Math.min(uploadedSoFar * UPLOAD_BACKOFF_STEP_MS, UPLOAD_BACKOFF_MAX_MS);
+}
+
+function recordUpload(
+  context: SyncContext,
+  pending: PendingUpload,
+  currentFiles: Record<string, FileMeta>,
+  progress: string
+): void {
+  const { size, mtimeMs } = pending.stats;
+
+  currentFiles[pending.relativePath] = { size, mtimeMs };
+  console.log(`Uploaded (${progress}): ${pending.relativePath}`);
+  saveProgress(context, currentFiles);
+}
+
 /** Upload each pending file, returning how many succeeded; failures are logged and skipped. */
 export async function uploadChangedFiles(
   context: SyncContext,
@@ -77,17 +97,13 @@ export async function uploadChangedFiles(
   let uploaded = 0;
 
   for (const pending of toUpload) {
-    // Growing delay so a huge first sync doesn't hammer the API; safe to
-    // Ctrl+C and rerun since state is saved after each successful upload.
-    await sleep(Math.min(uploaded * UPLOAD_BACKOFF_STEP_MS, UPLOAD_BACKOFF_MAX_MS));
+    await sleep(backoffDelayMs(uploaded));
 
     console.log(`Uploading (${uploaded + 1}/${toUpload.length}): ${pending.relativePath}`);
     if (!(await uploadOne(context, pending, `${uploaded}/${toUpload.length}`))) continue;
 
     uploaded++;
-    currentFiles[pending.relativePath] = { size: pending.stats.size, mtimeMs: pending.stats.mtimeMs };
-    console.log(`Uploaded (${uploaded}/${toUpload.length}): ${pending.relativePath}`);
-    saveProgress(context, currentFiles);
+    recordUpload(context, pending, currentFiles, `${uploaded}/${toUpload.length}`);
   }
 
   return uploaded;

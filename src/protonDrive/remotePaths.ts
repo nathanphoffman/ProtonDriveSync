@@ -18,7 +18,7 @@ function trimTrailingSlash(remotePath: string): string {
   return remotePath.endsWith("/") ? remotePath.slice(0, -1) : remotePath;
 }
 
-/** Append one literal name (not itself a path) as a child of a remote path. */
+/** Escape the name so a file called `a*b` is never treated as a glob pattern by the CLI. */
 export function remoteChild(parentPath: string, name: string): string {
   return `${trimTrailingSlash(parentPath)}/${escapeSegment(name)}`;
 }

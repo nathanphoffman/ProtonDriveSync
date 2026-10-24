@@ -13,7 +13,7 @@ async function main(): Promise<void> {
   await runSync(config);
 
   if (!once && config.watch) {
-    startWatching(config);
+    startWatching(config.localFolder, config.pollIntervalSeconds, () => runSync(config));
   }
 }
 

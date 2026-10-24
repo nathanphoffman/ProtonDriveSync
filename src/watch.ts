@@ -1,22 +1,22 @@
 import chokidar from "chokidar";
-import type { Config } from "./config/config";
 import { errorMessage } from "./protonDrive/commands";
-import { runSync } from "./sync/runSync";
 
 const DEBOUNCE_MS = 2000;
 const MS_PER_SECOND = 1000;
 const WATCHED_EVENTS = ["add", "change", "unlink", "addDir", "unlinkDir"];
 
-async function runSyncLogged(config: Config): Promise<void> {
+type SyncTask = () => Promise<void>;
+
+async function runTaskLogged(task: SyncTask): Promise<void> {
   try {
-    await runSync(config);
+    await task();
   } catch (error) {
     console.error("Sync failed:", errorMessage(error));
   }
 }
 
 /** Returns a trigger that never runs two syncs at once; a trigger during a sync queues exactly one rerun. */
-function createSyncTrigger(config: Config): () => void {
+function createSyncTrigger(task: SyncTask): () => void {
   let syncing = false;
   let pending = false;
 
@@ -27,7 +27,7 @@ function createSyncTrigger(config: Config): () => void {
     }
 
     syncing = true;
-    await runSyncLogged(config);
+    await runTaskLogged(task);
     syncing = false;
 
     if (pending) {
@@ -49,19 +49,17 @@ function debounce(action: () => void, delayMs: number): () => void {
   };
 }
 
-export function startWatching(config: Config): void {
-  const triggerSync = createSyncTrigger(config);
+/** Run `syncTask` whenever files change, plus every `pollIntervalSeconds` as a safety net. */
+export function startWatching(localFolder: string, pollIntervalSeconds: number, syncTask: SyncTask): void {
+  const triggerSync = createSyncTrigger(syncTask);
   const scheduleSync = debounce(triggerSync, DEBOUNCE_MS);
-  const watcher = chokidar.watch(config.localFolder, { ignoreInitial: true });
+  const watcher = chokidar.watch(localFolder, { ignoreInitial: true });
 
   for (const event of WATCHED_EVENTS) {
     watcher.on(event, scheduleSync);
   }
 
-  // Safety net in case the watcher misses an event.
-  setInterval(triggerSync, config.pollIntervalSeconds * MS_PER_SECOND);
+  setInterval(triggerSync, pollIntervalSeconds * MS_PER_SECOND);
 
-  console.log(
-    `Watching for changes (full re-check every ${config.pollIntervalSeconds}s). Press Ctrl+C to stop.`
-  );
+  console.log(`Watching for changes (full re-check every ${pollIntervalSeconds}s). Press Ctrl+C to stop.`);
 }

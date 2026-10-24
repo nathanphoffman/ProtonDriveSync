@@ -15,6 +15,7 @@ export function listLocal(root: string): LocalListing {
   return listing;
 }
 
+// Recursive so nested folders are found; only plain files and directories are kept (symlinks and other types are skipped).
 function walk(root: string, directory: string, listing: LocalListing): void {
   for (const entry of fs.readdirSync(directory, { withFileTypes: true })) {
     const fullPath = path.join(directory, entry.name);

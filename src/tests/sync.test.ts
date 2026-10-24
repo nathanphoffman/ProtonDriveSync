@@ -5,10 +5,22 @@ import * as path from "node:path";
 import { test } from "node:test";
 import { parseConfig } from "../config/config";
 import { listLocal } from "../sync/localScan";
-import { planUploads } from "../sync/uploads";
+import { type PendingUpload, planUploads } from "../sync/uploads";
 
 function makeTempFolder(): string {
   return fs.mkdtempSync(path.join(os.tmpdir(), "proton-sync-test-"));
+}
+
+function relativePathOf(upload: PendingUpload): string {
+  return upload.relativePath;
+}
+
+function parseEmptyConfig(): void {
+  parseConfig({});
+}
+
+function parseMissingFolderConfig(): void {
+  parseConfig({ localFolder: "/definitely/not/here" });
 }
 
 test("listLocal returns posix-style relative files and directories", () => {
@@ -33,7 +45,7 @@ test("planUploads skips unchanged files and queues new or changed ones", () => {
 
   const toUpload = planUploads(root, ["same.txt", "new.txt"], previous, current);
 
-  assert.deepEqual(toUpload.map((item) => item.relativePath), ["new.txt"]);
+  assert.deepEqual(toUpload.map(relativePathOf), ["new.txt"]);
   assert.deepEqual(Object.keys(current), ["same.txt"]);
 });
 
@@ -46,9 +58,11 @@ test("parseConfig applies defaults for optional fields", () => {
 });
 
 test("parseConfig rejects a missing localFolder", () => {
-  assert.throws(() => parseConfig({}), /localFolder/);
+  // /localFolder/ matches any error message that mentions the field name.
+  assert.throws(parseEmptyConfig, /localFolder/);
 });
 
 test("parseConfig rejects a folder that does not exist", () => {
-  assert.throws(() => parseConfig({ localFolder: "/definitely/not/here" }), /does not exist/);
+  // /does not exist/ matches the "folder does not exist" error text.
+  assert.throws(parseMissingFolderConfig, /does not exist/);
 });

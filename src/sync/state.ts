@@ -17,6 +17,7 @@ export interface State {
 export interface SyncContext {
   config: Config;
   remoteRoot: string;
+  statePath: string;
   ensuredDirs: Set<string>;
 }
 
@@ -30,9 +31,8 @@ export function statePath(localFolder: string): string {
   return path.join(PACKAGE_ROOT, STATE_FOLDER_NAME, `${encodedFolder}.json`);
 }
 
-/** Read saved state; a missing or corrupt file just means everything is re-checked. */
-export function loadState(localFolder: string): State {
-  const filePath = statePath(localFolder);
+/** Start from empty state on a missing or corrupt file: re-uploading everything is safer than failing to start. */
+export function loadState(filePath: string): State {
   if (!fs.existsSync(filePath)) return { files: {}, dirs: [] };
 
   try {
@@ -46,14 +46,12 @@ export function loadState(localFolder: string): State {
   }
 }
 
-export function saveState(localFolder: string, state: State): void {
-  const filePath = statePath(localFolder);
-
+export function saveState(filePath: string, state: State): void {
   fs.mkdirSync(path.dirname(filePath), { recursive: true });
   fs.writeFileSync(filePath, JSON.stringify(state, null, JSON_INDENT_SPACES));
 }
 
 /** Save after each remote change so an interrupted run can resume where it stopped. */
 export function saveProgress(context: SyncContext, files: Record<string, FileMeta>): void {
-  saveState(context.config.localFolder, { files, dirs: Array.from(context.ensuredDirs) });
+  saveState(context.statePath, { files, dirs: Array.from(context.ensuredDirs) });
 }

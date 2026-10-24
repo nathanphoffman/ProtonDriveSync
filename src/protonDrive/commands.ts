@@ -7,6 +7,7 @@ const PROTON_DRIVE_BINARY = "proton-drive";
 const FILESYSTEM_COMMAND = "filesystem";
 const MAX_BUFFER_MEGABYTES = 100; // large directory listings overflow the default buffer
 const BYTES_PER_MEGABYTE = 1024 * 1024;
+const NOT_FOUND_PATTERN = /node not found/i; // what `filesystem info` prints for a missing path
 const ALREADY_EXISTS_PATTERN = /already exists/i; // case-insensitive match on the CLI's error text
 
 async function runFilesystem(args: string[]): Promise<void> {
@@ -19,10 +20,10 @@ export async function remotePathExists(remotePath: string): Promise<boolean> {
   try {
     await runFilesystem(["info", remotePath, "-j"]);
     return true;
-  } catch {
-    // Any failure means "treat as missing". Real problems (auth, network) will
-    // surface loudly from the createFolder call that follows.
-    return false;
+  } catch (error) {
+    if (NOT_FOUND_PATTERN.test(errorMessage(error))) return false;
+
+    throw error; // auth/network problems must not be mistaken for "missing"
   }
 }
 

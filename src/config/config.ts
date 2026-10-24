@@ -38,6 +38,7 @@ function readConfigFile(): RawConfig {
   return JSON.parse(fs.readFileSync(CONFIG_PATH, "utf-8"));
 }
 
+// Fail at startup with a clear message, rather than letting a bad folder surface as odd errors mid-sync.
 function resolveLocalFolder(value: unknown): string {
   if (!value || typeof value !== "string") {
     throw new Error("config.json: \"localFolder\" is required and must be a string.");

@@ -4,25 +4,42 @@ import { createFolder, remotePathExists } from "../protonDrive/commands";
 import { remoteChild } from "../protonDrive/remotePaths";
 import { listLocal } from "./localScan";
 import { ensureRemoteDir } from "./remoteDirs";
-import { type FileMeta, loadState, saveProgress, type SyncContext } from "./state";
+import { type FileMeta, loadState, saveProgress, type State, statePath, type SyncContext } from "./state";
 import { trashDeletedFiles } from "./trash";
 import { planUploads, uploadChangedFiles } from "./uploads";
 
 export const REMOTE_ROOT_PARENT = "/my-files";
 
-async function ensureRemoteRoot(
-  context: SyncContext,
-  folderName: string,
-  knownFiles: Record<string, FileMeta>
-): Promise<void> {
+function createContext(config: Config, state: State, stateFilePath: string): SyncContext {
+  const folderName = path.basename(config.localFolder);
+
+  return {
+    config,
+    remoteRoot: remoteChild(REMOTE_ROOT_PARENT, folderName),
+    statePath: stateFilePath,
+    ensuredDirs: new Set(state.dirs),
+  };
+}
+
+async function ensureRemoteRoot(context: SyncContext, knownFiles: Record<string, FileMeta>): Promise<void> {
   if (context.ensuredDirs.has("")) return;
 
   if (!(await remotePathExists(context.remoteRoot))) {
-    await createFolder(REMOTE_ROOT_PARENT, folderName);
+    await createFolder(REMOTE_ROOT_PARENT, path.basename(context.config.localFolder));
   }
 
   context.ensuredDirs.add("");
   saveProgress(context, knownFiles);
+}
+
+async function ensureAllRemoteDirs(
+  context: SyncContext,
+  dirs: string[],
+  knownFiles: Record<string, FileMeta>
+): Promise<void> {
+  for (const relativeDir of dirs) {
+    await ensureRemoteDir(context, relativeDir, knownFiles);
+  }
 }
 
 function logSummary(config: Config, checked: number, uploaded: number, trashed: number): void {
@@ -33,21 +50,15 @@ function logSummary(config: Config, checked: number, uploaded: number, trashed: 
 
 /** One full pass: make sure remote dirs exist, upload what changed, optionally trash what was deleted. */
 export async function runSync(config: Config): Promise<void> {
-  const folderName = path.basename(config.localFolder);
-  const state = loadState(config.localFolder);
-  const context: SyncContext = {
-    config,
-    remoteRoot: remoteChild(REMOTE_ROOT_PARENT, folderName),
-    ensuredDirs: new Set(state.dirs),
-  };
+  const stateFilePath = statePath(config.localFolder);
+  const state = loadState(stateFilePath);
+  const context = createContext(config, state, stateFilePath);
   const currentFiles: Record<string, FileMeta> = {};
 
-  await ensureRemoteRoot(context, folderName, state.files);
+  await ensureRemoteRoot(context, state.files);
 
   const { files, dirs } = listLocal(config.localFolder);
-  for (const relativeDir of dirs) {
-    await ensureRemoteDir(context, relativeDir, state.files);
-  }
+  await ensureAllRemoteDirs(context, dirs, state.files);
 
   const toUpload = planUploads(config.localFolder, files, state.files, currentFiles);
   const uploaded = await uploadChangedFiles(context, toUpload, currentFiles);

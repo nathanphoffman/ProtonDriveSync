@@ -2,6 +2,18 @@ import { errorMessage, trash } from "../protonDrive/commands";
 import { remotePathFor } from "../protonDrive/remotePaths";
 import { type FileMeta, saveProgress, type SyncContext } from "./state";
 
+async function tryTrash(context: SyncContext, relativePath: string): Promise<boolean> {
+  try {
+    await trash(remotePathFor(context.remoteRoot, relativePath));
+
+    return true;
+  } catch (error) {
+    console.error(`Failed to trash ${relativePath}: ${errorMessage(error)}`);
+
+    return false;
+  }
+}
+
 /** Move remote copies of files that disappeared locally to the Proton Drive trash. */
 export async function trashDeletedFiles(
   context: SyncContext,
@@ -12,13 +24,7 @@ export async function trashDeletedFiles(
 
   for (const relativePath of Object.keys(previousFiles)) {
     if (relativePath in currentFiles) continue;
-
-    try {
-      await trash(remotePathFor(context.remoteRoot, relativePath));
-    } catch (error) {
-      console.error(`Failed to trash ${relativePath}: ${errorMessage(error)}`);
-      continue;
-    }
+    if (!(await tryTrash(context, relativePath))) continue;
 
     trashed++;
     delete previousFiles[relativePath];

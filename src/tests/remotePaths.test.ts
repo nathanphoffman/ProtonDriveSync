@@ -3,6 +3,7 @@ import { test } from "node:test";
 import { escapeLocalPath, remoteChild, remotePathFor } from "../protonDrive/remotePaths";
 
 test("remoteChild escapes glob characters and slashes in the name", () => {
+  // Each special character in the name gets a backslash in front (written "\\" in a string).
   assert.equal(remoteChild("/my-files", "a[1]*?/b"), "/my-files/a\\[1\\]\\*\\?\\/b");
 });
 
