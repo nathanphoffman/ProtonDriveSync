@@ -1,28 +1,29 @@
 import * as path from "node:path";
-import { createFolder, remotePathExists, remotePathFor } from "../protonDriveCli";
-import { FileMeta, saveState } from "./state";
+import { createFolder, remotePathExists } from "../protonDrive/commands";
+import { remotePathFor } from "../protonDrive/remotePaths";
+import { type FileMeta, saveProgress, type SyncContext } from "./state";
 
+/** Create a remote directory (and its missing parents) unless it is already known or present. */
 export async function ensureRemoteDir(
-  localFolder: string,
-  remoteRoot: string,
-  relDir: string,
-  ensuredDirs: Set<string>,
+  context: SyncContext,
+  relativeDir: string,
   knownFiles: Record<string, FileMeta>
 ): Promise<void> {
-  if (relDir === "" || ensuredDirs.has(relDir)) return;
+  if (relativeDir === "" || context.ensuredDirs.has(relativeDir)) return;
 
-  const parentRel = path.posix.dirname(relDir);
-  if (parentRel !== ".") {
-    await ensureRemoteDir(localFolder, remoteRoot, parentRel, ensuredDirs, knownFiles);
+  const parentRelative = path.posix.dirname(relativeDir);
+  if (parentRelative !== ".") {
+    await ensureRemoteDir(context, parentRelative, knownFiles);
   }
-  const parentRemote = parentRel === "." ? remoteRoot : remotePathFor(remoteRoot, parentRel);
 
-  const name = path.posix.basename(relDir);
-  const remotePath = remotePathFor(remoteRoot, relDir);
-  if (!(await remotePathExists(remotePath))) {
-    console.log(`Creating directory: ${relDir}`);
-    await createFolder(parentRemote, name);
+  if (!(await remotePathExists(remotePathFor(context.remoteRoot, relativeDir)))) {
+    console.log(`Creating directory: ${relativeDir}`);
+    await createFolder(
+      remotePathFor(context.remoteRoot, parentRelative),
+      path.posix.basename(relativeDir)
+    );
   }
-  ensuredDirs.add(relDir);
-  saveState(localFolder, { files: knownFiles, dirs: Array.from(ensuredDirs) });
+
+  context.ensuredDirs.add(relativeDir);
+  saveProgress(context, knownFiles);
 }

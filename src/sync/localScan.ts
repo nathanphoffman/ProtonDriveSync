@@ -1,23 +1,30 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
 
-export function listLocal(root: string): { files: string[]; dirs: string[] } {
-  const files: string[] = [];
-  const dirs: string[] = [];
+export interface LocalListing {
+  files: string[];
+  dirs: string[];
+}
 
-  function walk(dir: string) {
-    for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
-      const full = path.join(dir, entry.name);
-      const rel = path.relative(root, full).split(path.sep).join("/");
-      if (entry.isDirectory()) {
-        dirs.push(rel);
-        walk(full);
-      } else if (entry.isFile()) {
-        files.push(rel);
-      }
+/** List every file and directory under root as posix-style paths relative to root. */
+export function listLocal(root: string): LocalListing {
+  const listing: LocalListing = { files: [], dirs: [] };
+
+  walk(root, root, listing);
+
+  return listing;
+}
+
+function walk(root: string, directory: string, listing: LocalListing): void {
+  for (const entry of fs.readdirSync(directory, { withFileTypes: true })) {
+    const fullPath = path.join(directory, entry.name);
+    const relativePath = path.relative(root, fullPath).split(path.sep).join("/");
+
+    if (entry.isDirectory()) {
+      listing.dirs.push(relativePath);
+      walk(root, fullPath, listing);
+    } else if (entry.isFile()) {
+      listing.files.push(relativePath);
     }
   }
-
-  walk(root);
-  return { files, dirs };
 }
