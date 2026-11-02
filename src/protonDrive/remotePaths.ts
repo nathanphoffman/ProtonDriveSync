@@ -1,7 +1,10 @@
 // proton-drive glob-matches the paths it is given, so literal glob characters
 // must be backslash-escaped. Both regexes match one such character and the
 // replacement "\\$&" puts a backslash in front of whatever was matched.
+// Also matches "/" because a single segment must never contain a separator.
 const SEGMENT_GLOB_CHARACTERS = /[\\/[\]*?]/g;
+
+// Leaves "/" alone because this is a whole path, not one segment.
 const LOCAL_PATH_GLOB_CHARACTERS = /[\\[\]*?]/g;
 
 /** Escape one path segment; `/` is escaped too because a segment is never a path. */

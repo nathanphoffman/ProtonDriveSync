@@ -46,7 +46,7 @@ export function loadState(filePath: string): State {
   }
 }
 
-export function saveState(filePath: string, state: State): void {
+function saveState(filePath: string, state: State): void {
   fs.mkdirSync(path.dirname(filePath), { recursive: true });
   fs.writeFileSync(filePath, JSON.stringify(state, null, JSON_INDENT_SPACES));
 }
