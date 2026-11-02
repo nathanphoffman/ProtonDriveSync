@@ -19,6 +19,7 @@ async function runFilesystem(args: string[]): Promise<void> {
 export async function remotePathExists(remotePath: string): Promise<boolean> {
   try {
     await runFilesystem(["info", remotePath, "-j"]);
+
     return true;
   } catch (error) {
     if (NOT_FOUND_PATTERN.test(errorMessage(error))) return false;

@@ -24,6 +24,7 @@ export async function trashDeletedFiles(
 
   for (const relativePath of Object.keys(previousFiles)) {
     if (relativePath in currentFiles) continue;
+
     if (!(await tryTrash(context, relativePath))) continue;
 
     trashed++;

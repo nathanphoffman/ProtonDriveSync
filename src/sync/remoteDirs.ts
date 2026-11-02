@@ -12,6 +12,7 @@ export async function ensureRemoteDir(
   if (relativeDir === "" || context.ensuredDirs.has(relativeDir)) return;
 
   const parentRelative = path.posix.dirname(relativeDir);
+
   if (parentRelative !== ".") {
     await ensureRemoteDir(context, parentRelative, knownFiles);
   }

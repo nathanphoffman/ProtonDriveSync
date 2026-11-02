@@ -23,6 +23,7 @@ function createSyncTrigger(task: SyncTask): () => void {
   async function trigger(): Promise<void> {
     if (syncing) {
       pending = true;
+
       return;
     }
 

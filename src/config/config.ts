@@ -45,9 +45,11 @@ function resolveLocalFolder(value: unknown): string {
   }
 
   const localFolder = path.resolve(expandHome(value));
+
   if (!fs.existsSync(localFolder)) {
     throw new Error(`config.json: localFolder does not exist: ${localFolder}`);
   }
+
   if (!fs.statSync(localFolder).isDirectory()) {
     throw new Error(`config.json: localFolder is not a directory: ${localFolder}`);
   }

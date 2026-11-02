@@ -100,6 +100,7 @@ export async function uploadChangedFiles(
     await sleep(backoffDelayMs(uploaded));
 
     console.log(`Uploading (${uploaded + 1}/${toUpload.length}): ${pending.relativePath}`);
+
     if (!(await uploadOne(context, pending, `${uploaded}/${toUpload.length}`))) continue;
 
     uploaded++;

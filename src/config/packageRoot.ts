@@ -12,6 +12,7 @@ export function findPackageRoot(startDirectory: string): string {
     if (fs.existsSync(path.join(currentDirectory, "package.json"))) return currentDirectory;
 
     const parentDirectory = path.dirname(currentDirectory);
+
     if (parentDirectory === currentDirectory) return startDirectory; // reached filesystem root; give up
 
     currentDirectory = parentDirectory;
